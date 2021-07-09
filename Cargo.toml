@@ -1,0 +1,12 @@
+[package]
+name = "sass-rocket-fairing"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rocket = "0.5.0-rc.1"
+sass-rs = "0.2.2"
+normpath = "0.3.0"
+walkdir = "2.3.2"

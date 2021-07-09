@@ -1,0 +1,4 @@
+# For examples
+[default]
+sass_dir = "examples/static/sass"
+css_dir = "examples/static/css"
