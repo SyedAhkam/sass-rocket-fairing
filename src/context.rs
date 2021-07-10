@@ -59,13 +59,11 @@ mod manager {
 mod manager {
     use std::sync::{RwLock, Mutex, mpsc};
     use std::collections::HashMap;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::fs;
 
     use std::io::Write;
 
-    use rocket::log::PaintExt;
-    use rocket::yansi::Paint;
     use notify::{raw_watcher, RawEvent, RecommendedWatcher, RecursiveMode, Watcher};
     use walkdir::WalkDir;
 
@@ -118,7 +116,15 @@ mod manager {
             for entry in WalkDir::new(sass_dir).into_iter().filter_map(|e| e.ok()) {
                 if entry.metadata().unwrap().is_file() {
                     let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_string();
-                    let result = crate::compile_file(entry.into_path());
+                    let result = match crate::compile_file(entry.into_path()) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            rocket::error!("Failed to compile file '{}'", file_name);
+                            rocket::error!("Sass error: {:?}", e);
+
+                            break;
+                        }
+                    };
 
                     compiled.insert(file_name, result);
                 }
@@ -148,12 +154,11 @@ mod manager {
         }
 
         /// Shorthand for `compile_all` + `write_compiled`
-        pub fn compile_all_and_write(&self) -> Result<(), ()> {
+        pub fn compile_all_and_write(&self) {
             if let Ok(compiled_files) = self.compile_all() {
                 self.write_compiled(compiled_files);
             }
 
-        Ok(())
         }
 
         /// Returns `true` if reloading
@@ -161,7 +166,7 @@ mod manager {
             self.watcher.is_some()
         }
 
-        /// Checks for any changes on sass_dir. 
+        /// Checks for any changes on `sass_dir`. 
         /// If found, compiles again (reloads)
         pub fn reload_if_needed(&self) {
             let sass_changes = self.watcher.as_ref()
@@ -170,10 +175,7 @@ mod manager {
             if let Some(true) = sass_changes {
                 rocket::info_!("Change detected: compiling sass files.");
                 
-                match self.compile_all_and_write() {
-                    Ok(_) => rocket::info!("{}{}", Paint::emoji("✨ "), Paint::green("Compiled sass files on reload")), 
-                    Err(e) => rocket::error!("Failed to compile sass files {:?}", e)
-                };
+                self.compile_all_and_write();
             }
         }
     }

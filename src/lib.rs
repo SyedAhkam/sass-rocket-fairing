@@ -9,9 +9,7 @@ use rocket::{
     fairing::{Fairing, Info, Kind},
 };
 
-use std::{
-    path::{Path, PathBuf}
-};
+use std::path::PathBuf;
 
 // Re-exports
 pub use sass_rs;
@@ -21,11 +19,11 @@ const DEFAULT_SASS_DIR: &str = "static/sass";
 const DEFAULT_CSS_DIR: &str = "static/css";
 
 /// Compiles a single sass file and returns the resultant `String`
-pub fn compile_file(path_buf: PathBuf) -> String {
+pub fn compile_file(path_buf: PathBuf) -> Result<String, String> {
     sass_rs::compile_file(
         path_buf.as_path(),
         sass_rs::Options::default()
-    ).expect(format!("Failed to compile file: '{:?}'", path_buf).as_str())
+    )
 }
 
 /// Main user facing rocket `Fairing`
@@ -94,14 +92,12 @@ impl Fairing for SassFairing {
         let sass_dir = context.sass_dir.strip_prefix(std::env::current_dir().unwrap()).unwrap();
         let css_dir = context.css_dir.strip_prefix(std::env::current_dir().unwrap()).unwrap();
 
-        rocket::info!("{}{}:", Paint::emoji("✨ "), Paint::magenta("Sassing"));
+        rocket::info!("{}{}:", Paint::emoji("✨ "), Paint::magenta("Sass"));
         rocket::info_!("sass directory: {}", Paint::white(sass_dir.display()));
         rocket::info_!("css directory: {}", Paint::white(css_dir.display()));
 
-        match ctx_manager.compile_all_and_write() {
-            Ok(_) => rocket::info!("{}{}", Paint::emoji("✨ "), Paint::green("Compiled sass files on liftoff") ), 
-            Err(e) => rocket::error!("Failed to compile sass files on liftoff: {:?}", e)
-        };
+        rocket::info_!("compiling initial files.");
+        ctx_manager.compile_all_and_write();
     } 
 
     /// Calls `ContextManager.reload_if_needed` on new incoming request
