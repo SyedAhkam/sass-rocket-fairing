@@ -2,13 +2,17 @@ use rocket::{
     Rocket,
     Build,
     Orbit,
-    fairing::{Fairing, Info, Kind}
+    log::PaintExt,
+    yansi::Paint,
+    fairing::{Fairing, Info, Kind},
 };
 use normpath::PathExt;
 use walkdir::WalkDir;
+use notify::{raw_watcher, RawEvent, RecommendedWatcher, RecursiveMode, Watcher};
 
 use std::{
     fs,
+    sync::{mpsc, RwLock, Mutex},
     collections::HashMap,
     path::{Path, PathBuf}
 };
@@ -17,6 +21,8 @@ use std::io::Write;
 
 // Re-export
 pub use sass_rs;
+
+// TODO: compile on reload
 
 const DEFAULT_SASS_DIR: &str = "static/sass";
 const DEFAULT_CSS_DIR: &str = "static/css";
@@ -59,16 +65,43 @@ impl Context {
 }
 
 /// Manages the `Context`
-pub struct ContextManager(Context);
+pub struct ContextManager{
+    context: RwLock<Context>,
+    watcher: Option<(RecommendedWatcher, Mutex<mpsc::Receiver<RawEvent>>)>
+}
 
 impl ContextManager {
     pub fn new(ctx: Context) -> Self {
-        Self(ctx)
+        let (tx, rx) = mpsc::channel();
+        let watcher = raw_watcher(tx).and_then(|mut watcher| {
+            watcher.watch(ctx.sass_dir.canonicalize()?, RecursiveMode::Recursive)?;
+
+            Ok(watcher)
+        });
+
+        let watcher = match watcher {
+            Ok(watcher) => Some((watcher, Mutex::new(rx))),
+            Err(e) => {
+                rocket::warn!("Failed to enable live sass compiling: {}", e);
+                rocket::debug_!("Reload error: {:?}", e);
+                rocket::warn_!("Live sass compiling is unawailable.");
+
+                None
+            }
+        };
+
+        Self { context: RwLock::new(ctx), watcher }
     }
 
-    pub fn context<'a>(&'a self) -> impl std::ops::Deref<Target=Context> + 'a {
-        &self.0
-    }
+    /// Returns `Context` as read only
+    pub fn context(&self) -> impl std::ops::Deref<Target=Context> + '_ {
+        self.context.read().unwrap()
+    } 
+    
+    /// Returns `Context` as mutable
+    pub fn context_mut(&self) -> impl std::ops::DerefMut<Target=Context> + '_ {
+        self.context.write().unwrap()
+    } 
 
     /// Compiles all files in `sass_dir`
     pub fn compile_all(&self) -> Result<HashMap<String, String>, ()> {
@@ -115,6 +148,27 @@ impl ContextManager {
 
        Ok(())
     }
+
+    /// Returns `true` if reloading
+    pub fn is_reloading(&self) -> bool {
+        self.watcher.is_some()
+    }
+
+    /// Checks for any changes on sass_dir. 
+    /// If found, compiles again (reloads)
+    pub fn reload_if_needed(&self) {
+        let sass_changes = self.watcher.as_ref()
+            .map(|(_, rx)| rx.lock().expect("Failed to lock receiver").try_iter().count() > 0 );
+
+        if let Some(true) = sass_changes {
+            rocket::info_!("Change detected: compiling sass files.");
+            
+            match self.compile_all_and_write() {
+                Ok(_) => rocket::info!("{}{}", Paint::emoji("✨ "), Paint::green("Compiled sass files on reload")), 
+                Err(e) => rocket::error!("Failed to compile sass files {:?}", e)
+            };
+        }
+    }
 }
 
 /// Main user facing rocket `Fairing`
@@ -123,9 +177,14 @@ pub struct SassFairing;
 #[rocket::async_trait]
 impl Fairing for SassFairing {
     fn info(&self) -> Info {
+        let kind = Kind::Ignite | Kind::Liftoff | Kind::Singleton;
+
+        // Enable Request Kind in debug mode
+        #[cfg(debug_assertions)] let kind = kind | Kind::Request;
+
         Info {
             name: "Sass Compiler",
-            kind: Kind::Ignite | Kind::Liftoff | Kind::Singleton
+            kind
         }
     }
 
@@ -169,18 +228,32 @@ impl Fairing for SassFairing {
     }
 
    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
-        use rocket::{log::PaintExt, yansi::Paint};
 
         let ctx_manager = rocket.state::<ContextManager>()
             .expect("Sass Context not registered in on_ignite");
 
+        let context = &*ctx_manager.context();
+
+        let sass_dir = context.sass_dir.strip_prefix(std::env::current_dir().unwrap()).unwrap();
+        let css_dir = context.css_dir.strip_prefix(std::env::current_dir().unwrap()).unwrap();
+
         rocket::info!("{}{}:", Paint::emoji("✨ "), Paint::magenta("Sassing"));
-        rocket::info_!("sass directory: {}", Paint::white(&*ctx_manager.context().sass_dir.to_str().unwrap()));
-        rocket::info_!("css directory: {}", Paint::white(&*ctx_manager.context().css_dir.to_str().unwrap()));
+        rocket::info_!("sass directory: {}", Paint::white(sass_dir.display()));
+        rocket::info_!("css directory: {}", Paint::white(css_dir.display()));
 
         match ctx_manager.compile_all_and_write() {
-            Ok(_) => rocket::info!("✨ Compiled sass files on liftoff"), 
+            Ok(_) => rocket::info!("{}{}", Paint::emoji("✨ "), Paint::green("Compiled sass files on liftoff") ), 
             Err(e) => rocket::error!("Failed to compile sass files on liftoff: {:?}", e)
         };
     } 
+
+    /// Calls `ContextManager.reload_if_needed` on new incoming request
+    /// Only applicable in debug builds
+    #[cfg(debug_assertions)]
+    async fn on_request(&self, req: &mut rocket::Request<'_>, _data: &mut rocket::Data<'_>) { 
+        let context_manager = req.rocket().state::<ContextManager>()
+            .expect("Sass ContextManager not registered in on_ignite");
+        
+        context_manager.reload_if_needed();
+    }
 }
