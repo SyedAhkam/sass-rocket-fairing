@@ -13,16 +13,15 @@ use std::{
     path::{Path, PathBuf}
 };
 
+use std::io::Write;
+
 // Re-export
 pub use sass_rs;
 
 const DEFAULT_SASS_DIR: &str = "static/sass";
 const DEFAULT_CSS_DIR: &str = "static/css";
 
-pub enum Error {
-
-}
-
+/// Compiles a single sass file and returns the resultant `String`
 pub fn compile_file(path_buf: PathBuf) -> String {
     sass_rs::compile_file(
         path_buf.as_path(),
@@ -30,12 +29,14 @@ pub fn compile_file(path_buf: PathBuf) -> String {
     ).expect(format!("Failed to compile file: '{:?}'", path_buf).as_str())
 }
 
+/// A Shared reference containing configuration data
 pub struct Context {
     sass_dir: PathBuf,
     css_dir: PathBuf
 }
 
 impl Context {
+    /// Initializes the `Context` while checking for bad configuration
     pub fn initialize(sass_dir: &Path, css_dir: &Path) -> Option<Self> {
         let sass_dir_buf = match sass_dir.normalize() {
             Ok(dir) => dir.into_path_buf(),
@@ -57,6 +58,7 @@ impl Context {
     }
 }
 
+/// Manages the `Context`
 pub struct ContextManager(Context);
 
 impl ContextManager {
@@ -68,35 +70,54 @@ impl ContextManager {
         &self.0
     }
 
+    /// Compiles all files in `sass_dir`
     pub fn compile_all(&self) -> Result<HashMap<String, String>, ()> {
         let mut compiled: HashMap<String, String> = HashMap::new();
+        let sass_dir = &*self.context().sass_dir;
 
-        for entry in WalkDir::new(&*self.context().sass_dir).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(sass_dir).into_iter().filter_map(|e| e.ok()) {
             if entry.metadata().unwrap().is_file() {
-                let file_path = entry.path().to_str().unwrap().to_string();
+                let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_string();
                 let result = compile_file(entry.into_path());
 
-                compiled.insert(file_path, result);
+                compiled.insert(file_name, result);
             }
         }
 
         Ok(compiled)
     }
 
-    pub fn write_compiled(compiled_files: HashMap<String, String>) {
-        //TODO do the thing
+    /// Writes all compiled files to `css_dir`
+    pub fn write_compiled(&self, compiled_files: HashMap<String, String>) {
+        let css_dir = &*self.context().css_dir;
+
+        for (sass_file_name, compiled) in compiled_files {
+            let mut sass_file_name_path = PathBuf::new();
+
+            sass_file_name_path.push(sass_file_name);
+            sass_file_name_path.set_extension("css");
+
+            let css_file_path = css_dir.join(sass_file_name_path);
+
+            let mut file = fs::File::create(&css_file_path)
+                .expect(format!("Failed to create css file: '{:?}'", css_file_path).as_str());
+
+            file.write_all(compiled.as_bytes())
+                .expect(format!("Failed to write file: {:?}", css_file_path).as_str());
+        }
     }
 
+    /// Shorthand for `compile_all` + `write_compiled`
     pub fn compile_all_and_write(&self) -> Result<(), ()> {
-        let compiled_files = self.compile_all();
-        println!("{:#?}", compiled_files);
-
-    //    self.write_compiled(compiled_files);
+        if let Ok(compiled_files) = self.compile_all() {
+            self.write_compiled(compiled_files);
+        }
 
        Ok(())
     }
 }
 
+/// Main user facing rocket `Fairing`
 pub struct SassFairing;
 
 #[rocket::async_trait]
@@ -148,7 +169,7 @@ impl Fairing for SassFairing {
     }
 
    async fn on_liftoff(&self, rocket: &Rocket<Orbit>) {
-        use rocket::{figment::Source, log::PaintExt, yansi::Paint};
+        use rocket::{log::PaintExt, yansi::Paint};
 
         let ctx_manager = rocket.state::<ContextManager>()
             .expect("Sass Context not registered in on_ignite");
@@ -158,8 +179,8 @@ impl Fairing for SassFairing {
         rocket::info_!("css directory: {}", Paint::white(&*ctx_manager.context().css_dir.to_str().unwrap()));
 
         match ctx_manager.compile_all_and_write() {
-            Ok(_) => rocket::info!("Compiled sass files on liftoff"), 
-            Err(e) => rocket::error!("Failed to compile sass files on liftoff: {}", "ERRROR") //FIXME
+            Ok(_) => rocket::info!("✨ Compiled sass files on liftoff"), 
+            Err(e) => rocket::error!("Failed to compile sass files on liftoff: {:?}", e)
         };
     } 
 }
