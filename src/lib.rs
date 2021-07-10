@@ -26,6 +26,14 @@ pub fn compile_file(path_buf: PathBuf) -> Result<String, String> {
     )
 }
 
+/// Compile with custom sass options
+pub fn compile_file_with_options(path_buf: PathBuf, options: sass_rs::Options) -> Result<String, String> {
+    sass_rs::compile_file(
+        path_buf.as_path(),
+        options
+    )
+}
+
 /// Main user facing rocket `Fairing`
 pub struct SassFairing;
 
