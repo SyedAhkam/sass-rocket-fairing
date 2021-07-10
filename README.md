@@ -5,8 +5,14 @@
 ## Installing
 
 Add the following to your Cargo.toml file
-```
+```toml
 sass-rocket-fairing = "0.1"
+```
+
+OR using git
+
+```toml
+sass-rocket-fairing = {version = "0.1", git="https://github.com/SyedAhkam/sass-rocket-fairing.git"}
 ```
 
 ## Usage
@@ -41,13 +47,16 @@ css_dir = "static/css
 - ROCKET_SASS_DIR
 - ROCKET_CSS_DIR
 
-> `sass_dir` is the folder where your sass files are to be located while `css dir` is where your built css files are to be located.
+### Where
+- `sass_dir` is the folder where your sass files are to be located.
+
+- `css dir` is where your built css files are to be located.
 
 ## Thanks
 I've stolen a big chunk of code from [rocket_dyn_templates](https://github.com/SergioBenitez/Rocket/tree/1a42009e9f729661868d339c77f5b6fc8757cebe/contrib/dyn_templates) and adapted it to my needs.
 
 ## Contributing
-Feel free to send me a pull request! My code might be a little iffy but that's because I'm new to rust ecosystem.
+Feel free to send me a pull request! My code might be a little iffy but that's because I'm new to the rust ecosystem.
 
 ## License
 Licensed under the most permissive license, MIT.
