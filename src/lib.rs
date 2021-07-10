@@ -108,7 +108,7 @@ impl Fairing for SassFairing {
         ctx_manager.compile_all_and_write();
     } 
 
-    /// Calls `ContextManager.reload_if_needed` on new incoming request
+    /// Calls `ContextManager.reload_if_needed` on new incoming request.
     /// Only applicable in debug builds
     #[cfg(debug_assertions)]
     async fn on_request(&self, req: &mut rocket::Request<'_>, _data: &mut rocket::Data<'_>) { 
