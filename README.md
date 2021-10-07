@@ -39,7 +39,7 @@ fn rocket() -> _ {
 ```toml
 [default]
 sass_dir = "static/sass"
-css_dir = "static/css
+css_dir = "static/css"
 ```
 
 2. Using enviroment variables
@@ -50,7 +50,7 @@ css_dir = "static/css
 ### Where
 - `sass_dir` is the folder where your sass files are to be located.
 
-- `css dir` is where your built css files are to be located.
+- `css_dir` is where your built css files are to be located.
 
 ## Thanks
 I've stolen a big chunk of code from [rocket_dyn_templates](https://github.com/SergioBenitez/Rocket/tree/1a42009e9f729661868d339c77f5b6fc8757cebe/contrib/dyn_templates) and adapted it to my needs.
