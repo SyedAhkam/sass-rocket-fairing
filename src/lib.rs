@@ -104,8 +104,11 @@ impl Fairing for SassFairing {
         rocket::info_!("sass directory: {}", Paint::white(sass_dir.display()));
         rocket::info_!("css directory: {}", Paint::white(css_dir.display()));
 
-        rocket::info_!("compiling initial files.");
-        ctx_manager.compile_all_and_write();
+        // Precompile sass files if in debug mode
+        if cfg!(debug_assertions) {
+            rocket::info_!("pre-compiling sass files");
+            ctx_manager.compile_all_and_write();
+        }
     } 
 
     /// Calls `ContextManager.reload_if_needed` on new incoming request.

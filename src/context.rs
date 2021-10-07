@@ -52,6 +52,9 @@ mod manager {
         pub fn is_reloading(&self) -> bool {
             false
         }
+
+        // This method is just a quickfix to get rid of not-defined errors
+        pub fn compile_all_and_write(&self) {}
     }
 }
 
