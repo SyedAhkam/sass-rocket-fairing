@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 /// A Shared reference containing configuration data
 pub struct Context {
     pub sass_dir: PathBuf,
-    pub css_dir: PathBuf
+    pub css_dir: PathBuf,
+    pub rsass_format: rsass::output::Format,
 }
 
 impl Context {
     /// Initializes the `Context` while checking for bad configuration
-    pub fn initialize(sass_dir: &Path, css_dir: &Path) -> Option<Self> {
+    pub fn initialize(sass_dir: &Path, css_dir: &Path, rsass_format: rsass::output::Format) -> Option<Self> {
         let sass_dir_buf = match sass_dir.normalize() {
             Ok(dir) => dir.into_path_buf(),
             Err(e) => {
@@ -27,7 +28,7 @@ impl Context {
             }
         };
 
-        Some(Self { sass_dir: sass_dir_buf, css_dir: css_dir_buf })
+        Some(Self { sass_dir: sass_dir_buf, css_dir: css_dir_buf, rsass_format: rsass_format })
     }
 }
 
@@ -115,11 +116,12 @@ mod manager {
         pub fn compile_all(&self) -> Result<HashMap<String, String>, ()> {
             let mut compiled: HashMap<String, String> = HashMap::new();
             let sass_dir = &*self.context().sass_dir;
+            let rsass_format = *&self.context().rsass_format;
 
             for entry in WalkDir::new(sass_dir).into_iter().filter_map(|e| e.ok()) {
                 if entry.metadata().unwrap().is_file() {
                     let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_string();
-                    let result = match crate::compile_file(entry.into_path()) {
+                    let result = match crate::compile_file(entry.into_path(), rsass_format) {
                         Ok(result) => result,
                         Err(e) => {
                             rocket::error!("Failed to compile file '{}'", file_name);

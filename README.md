@@ -2,6 +2,8 @@
 
 `sass-rocket-fairing` is a Fairing/middleware for [rocket.rs](https://rocket.rs) facilitating sass compilation. It compiles your sass files on change automagically ✨
 
+> Powered by [rsass](https://crates.io/crates/rsass) (Sass reimplementation in Rust) under the hood.
+
 ## Installing
 
 Add the following to your Cargo.toml file
@@ -25,7 +27,7 @@ use sass_rocket_fairing::SassFairing;
 
 #[launch]
 fn rocket() -> _ {
-    rocket::build().attach(SassFairing)
+    rocket::build().attach(SassFairing::default())
 }
 ```
 
@@ -51,6 +53,36 @@ css_dir = "static/css"
 - `sass_dir` is the folder where your sass files are to be located.
 
 - `css_dir` is where your built css files are to be located.
+
+### Change output format
+
+You can change the output format of the css files by setting the `format` parameter while creating a new `SassFairing`.
+
+`rsass` have been re-exported for convenience.
+
+```rust
+#[macro_use]
+extern crate rocket;
+
+use sass_rocket_fairing::{SassFairing, rsass};
+
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(SassFairing::new(
+            format: rsass::output::Format {
+                style: output::Style::Compressed,
+                .. Default::default()
+            }
+        )
+    )
+}
+```
+
+## Todo
+
+- [ ] Add support for sass (sass != scss) syntax.
+- [ ] Combine multiple sass files into one css file.
 
 ## Thanks
 I've stolen a big chunk of code from [rocket_dyn_templates](https://github.com/SergioBenitez/Rocket/tree/1a42009e9f729661868d339c77f5b6fc8757cebe/contrib/dyn_templates) and adapted it to my needs.

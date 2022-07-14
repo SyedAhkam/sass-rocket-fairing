@@ -13,7 +13,7 @@ fn index() -> &'static str {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .attach(SassFairing)
+        .attach(SassFairing::default())
         .mount("/", routes![index])
         .mount("/static", FileServer::from(relative!("examples/static")))
 }
