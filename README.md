@@ -8,13 +8,13 @@
 
 Add the following to your Cargo.toml file
 ```toml
-sass-rocket-fairing = "0.1"
+sass-rocket-fairing = "0.2"
 ```
 
 OR using git
 
 ```toml
-sass-rocket-fairing = {version = "0.1", git="https://github.com/SyedAhkam/sass-rocket-fairing.git"}
+sass-rocket-fairing = {version = "0.2", git="https://github.com/SyedAhkam/sass-rocket-fairing.git"}
 ```
 
 ## Usage
