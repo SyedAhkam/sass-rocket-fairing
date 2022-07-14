@@ -69,8 +69,7 @@ use sass_rocket_fairing::{SassFairing, rsass};
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .attach(SassFairing::new(
-            format: rsass::output::Format {
+        .attach(SassFairing::new(rsass::output::Format {
                 style: output::Style::Compressed,
                 .. Default::default()
             }
