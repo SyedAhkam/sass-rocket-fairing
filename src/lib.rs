@@ -114,11 +114,11 @@ impl Fairing for SassFairing {
         let sass_dir = context
             .sass_dir
             .strip_prefix(std::env::current_dir().unwrap())
-            .unwrap();
+            .expect("sass_dir is not defined");
         let css_dir = context
             .css_dir
             .strip_prefix(std::env::current_dir().unwrap())
-            .unwrap();
+            .expect("css_dir is not defined");
 
         rocket::info!("{}{}:", Paint::emoji("✨ "), Paint::magenta("Sass"));
         rocket::info_!("sass directory: {}", Paint::white(sass_dir.display()));
