@@ -125,7 +125,7 @@ impl Fairing for SassFairing {
             }
         };
 
-        if let Some(ctx) = Context::initialize(&sass_path, &css_path, self.backend.clone()) {
+        if let Some(ctx) = Context::initialize(&sass_path, &css_path) {
             Ok(rocket.manage(ContextManager::new(ctx)))
         } else {
             rocket::error!("Sass Initialization failed. Aborting launch.");
@@ -156,7 +156,7 @@ impl Fairing for SassFairing {
         // Precompile sass files if in debug mode
         if cfg!(debug_assertions) {
             rocket::info_!("pre-compiling sass files");
-            ctx_manager.compile_all_and_write();
+            ctx_manager.compile_all_and_write(&self.backend);
         }
     }
 
@@ -169,6 +169,6 @@ impl Fairing for SassFairing {
             .state::<ContextManager>()
             .expect("Sass ContextManager not registered in on_ignite");
 
-        context_manager.reload_if_needed();
+        context_manager.reload_if_needed(&self.backend);
     }
 }
