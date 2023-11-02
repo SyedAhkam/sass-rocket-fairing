@@ -12,6 +12,13 @@ keywords = ["rocket", "sass", "fairing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["backend_rsass"]
+# Enable rsass support
+backend_rsass = []
+# Enable dart-sass support (via Command, `sass` must be in the path)
+backend_dart_sass = []
+
 [dependencies]
 rocket = "0.5.0-rc.1"
 rsass = "0.25.2"

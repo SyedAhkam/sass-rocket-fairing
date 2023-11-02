@@ -6,13 +6,12 @@ use std::path::{Path, PathBuf};
 pub struct Context {
     pub sass_dir: PathBuf,
     pub css_dir: PathBuf,
-    pub rsass_format: rsass::output::Format,
 }
 
 impl Context {
     /// Initializes the `Context` while checking for bad configuration
-    pub fn initialize(sass_dir: &Path, css_dir: &Path, rsass_format: rsass::output::Format) -> Option<Self> {
-        let sass_dir_buf = match sass_dir.normalize() {
+    pub fn initialize(sass_dir: &Path, css_dir: &Path) -> Option<Self> {
+        let sass_dir = match sass_dir.normalize() {
             Ok(dir) => dir.into_path_buf(),
             Err(e) => {
                 rocket::error!("Invalid sass directory '{}': {}.", sass_dir.display(), e);
@@ -20,7 +19,7 @@ impl Context {
             }
         };
         
-        let css_dir_buf = match css_dir.normalize() {
+        let css_dir = match css_dir.normalize() {
             Ok(dir) => dir.into_path_buf(),
             Err(e) => {
                 rocket::error_!("Invalid css directory '{}': {}.", css_dir.display(), e);
@@ -28,7 +27,7 @@ impl Context {
             }
         };
 
-        Some(Self { sass_dir: sass_dir_buf, css_dir: css_dir_buf, rsass_format: rsass_format })
+        Some(Self { sass_dir, css_dir })
     }
 }
 
@@ -70,6 +69,7 @@ mod manager {
 
     use notify::{raw_watcher, RawEvent, RecommendedWatcher, RecursiveMode, Watcher};
     use walkdir::WalkDir;
+    use crate::SassBackend;
 
     use super::Context;
 
@@ -113,15 +113,14 @@ mod manager {
         } 
 
         /// Compiles all files in `sass_dir`
-        pub fn compile_all(&self) -> Result<HashMap<String, String>, ()> {
+        pub fn compile_all(&self, backend: &SassBackend) -> Result<HashMap<String, String>, ()> {
             let mut compiled: HashMap<String, String> = HashMap::new();
             let sass_dir = &*self.context().sass_dir;
-            let rsass_format = *&self.context().rsass_format;
 
             for entry in WalkDir::new(sass_dir).into_iter().filter_map(|e| e.ok()) {
                 if entry.metadata().unwrap().is_file() {
                     let file_name = entry.path().file_name().unwrap().to_str().unwrap().to_string();
-                    let result = match crate::compile_file(entry.into_path(), rsass_format) {
+                    let result = match crate::compile_file(entry.into_path(), backend) {
                         Ok(result) => result,
                         Err(e) => {
                             rocket::error!("Failed to compile file '{}'", file_name);
@@ -159,11 +158,10 @@ mod manager {
         }
 
         /// Shorthand for `compile_all` + `write_compiled`
-        pub fn compile_all_and_write(&self) {
-            if let Ok(compiled_files) = self.compile_all() {
+        pub fn compile_all_and_write(&self, backend: &SassBackend) {
+            if let Ok(compiled_files) = self.compile_all(backend) {
                 self.write_compiled(compiled_files);
             }
-
         }
 
         /// Returns `true` if reloading
@@ -173,14 +171,14 @@ mod manager {
 
         /// Checks for any changes on `sass_dir`. 
         /// If found, compiles again (reloads)
-        pub fn reload_if_needed(&self) {
+        pub fn reload_if_needed(&self, backend: &SassBackend) {
             let sass_changes = self.watcher.as_ref()
                 .map(|(_, rx)| rx.lock().expect("Failed to lock receiver").try_iter().count() > 0 );
 
             if let Some(true) = sass_changes {
                 rocket::info_!("Change detected: compiling sass files.");
                 
-                self.compile_all_and_write();
+                self.compile_all_and_write(backend);
             }
         }
     }

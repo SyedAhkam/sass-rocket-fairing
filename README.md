@@ -64,17 +64,16 @@ You can change the output format of the css files by setting the `format` parame
 #[macro_use]
 extern crate rocket;
 
-use sass_rocket_fairing::{SassFairing, rsass};
+use sass_rocket_fairing::{SassFairing, SassBackend, rsass};
 
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .attach(SassFairing::new(rsass::output::Format {
+        .attach(SassFairing::new(SassBackend::RSass(rsass::output::Format {
                 style: output::Style::Compressed,
                 .. Default::default()
-            }
+            }))
         )
-    )
 }
 ```
 
